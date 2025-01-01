@@ -5,11 +5,11 @@
   "repository": "tldr-pages/tldr-maintenance",
   "homepage": "https://github.com/tldr-pages/tldr-maintenance",
   "dependencies": {
-    "markdownlint-cli": "^0.42.0",
-    "tldr-lint": "^0.0.15"
+    "markdownlint-cli": "^0.43.0",
+    "tldr-lint": "^0.0.16"
   },
   "devDependencies": {
-    "husky": "^9.1.6"
+    "husky": "^9.1.7"
   },
   "scripts": {
     "lint-markdown": "markdownlint *.md",
