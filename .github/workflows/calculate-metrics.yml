@@ -2,7 +2,7 @@ name: Calculate Metrics
 
 on:
   workflow_dispatch:
-  push: 
+  push:
     branches: [main]
     paths:
       - tldr/
@@ -18,18 +18,18 @@ jobs:
     name: Calculate Metrics
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           submodules: true
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         if: github.ref == 'refs/heads/main'
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -40,14 +40,14 @@ jobs:
       - name: Install pip dependencies
         if: github.ref == 'refs/heads/main'
         run: pip install -r requirements.txt && rm -f requirements.txt
-  
+
       - name: Run the script and generate artifacts
         run: |
           ./scripts/calculate-metrics.sh 2>&1 | tee metrics-log.md
           cat metrics-log.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Calculate Metrics artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: metrics
           path: |
@@ -59,9 +59,22 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: zip -r metrics.zip metrics-log.md *.txt check-pages*/
 
+      - name: Delete artifacts from GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: mknejp/delete-release-assets@03294a667e97911b5883d3028f277a0b4441edfb # v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: latest
+          fail-if-no-assets: false
+          fail-if-no-release: false
+          assets: |
+            metrics-log.md
+            *.txt
+            metrics.zip
+
       - name: Upload artifacts to GitHub Release
         if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: latest
           files: |

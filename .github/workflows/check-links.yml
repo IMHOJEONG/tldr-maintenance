@@ -19,13 +19,13 @@ jobs:
     steps:
       - name: Restore lychee cache
         id: restore-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .lycheecache
           key: cache-lychee-${{ github.sha }}
           restore-keys: cache-lychee-
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           submodules: true
@@ -34,20 +34,14 @@ jobs:
           grep -rh "More information: " tldr/pages/ | sort -u > ${{ env.LYCHEE_INPUT_FILE }}
           echo "Checking" $(wc -l < ${{ env.LYCHEE_INPUT_FILE }}) "links"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: links
-          path: ${{ env.LYCHEE_INPUT_FILE }}
-
       - name: Lychee URL checker
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@a8c4c7cb88f0c7386610c35eb25108e448569cb0 # v2.7.0
         id: lychee
         continue-on-error: true
         with:
           jobSummary: false
           args: >-
             --cache
-            --verbose
             --no-progress
             --accept 100..=103,200..=299,429
             --max-concurrency 25
@@ -55,6 +49,14 @@ jobs:
             ${{ env.LYCHEE_INPUT_FILE }}
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Upload Lychee input and output
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: links-and-output
+          path: |
+            ${{ env.LYCHEE_INPUT_FILE }}
+            ${{ env.LYCHEE_OUTPUT_FILE }}
 
       - name: Sort failed URLs alphabetically
         run: python3 scripts/sort-lychee-output.py
@@ -64,7 +66,7 @@ jobs:
 
       - name: Find the last report issue open
         if: github.repository == 'tldr-pages/tldr-maintenance' && github.ref == 'refs/heads/main'
-        uses: micalevisk/last-issue-action@v2
+        uses: micalevisk/last-issue-action@0d40124cc99ac8601c2516007f0c98ef3d27537b # v2.3.0
         id: last-issue
         with:
           state: open
@@ -74,7 +76,7 @@ jobs:
 
       - name: Update last report open issue created
         if: ${{ github.repository == 'tldr-pages/tldr-maintenance' && github.ref == 'refs/heads/main' && steps.lychee.outputs.exit_code != 0 }}
-        uses: peter-evans/create-issue-from-file@v5
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710 # v6.0.0
         with:
           title: Link checker report
           content-filepath: ${{ env.LYCHEE_OUTPUT_FILE }}
@@ -84,9 +86,9 @@ jobs:
       - name: Close last report open issue
         if: ${{ github.repository == 'tldr-pages/tldr-maintenance' && github.ref == 'refs/heads/main' && steps.lychee.outputs.exit_code == 0 && steps.last-issue.outputs.has-found == 'true' }}
         run: gh issue close ${{ steps.last-issue.outputs.issue-number }}
-  
+
       - name: Save lychee cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         if: always()
         with:
           path: .lycheecache

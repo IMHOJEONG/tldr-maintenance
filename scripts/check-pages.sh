@@ -3,10 +3,10 @@
 
 # This script can be executed to check several things for the translated pages. This could also be run on the English folder, be aware that some checks are not applicable.
 # - Check if a page references missing TLDR pages.
-#   A command is marked as missing when it is mentioned in a page (`tldr {{command}}`) but the referenced command doesn't have a (translated) page.     
-# - Check if a page is misplaced. 
-#   A page is marked as misplaced when the page isn’t inside a folder in the list of supported platforms.
-# - Check if a page is outdated. 
+#   A command is marked as missing when it is mentioned in a page (`tldr {{command}}`) but the referenced command doesn't have a (translated) page.
+# - Check if a page is misplaced.
+#   A page is marked as misplaced when the page isn't inside a folder in the list of supported platforms.
+# - Check if a page is outdated.
 #   A page is marked as outdated when the number of commands differ from the number of commands in the English page or the contents of the commands differ from the English page.
 # - Check if a page is missing as English page (n/a for English).
 #   A page is marked as missing when the filename can't be found as English page.
@@ -20,11 +20,13 @@
 #   - Adding -v enables verbose logging.
 
 ROOT_DIR="${TLDR_ROOT:-./tldr}"
-PLATFORMS=("android" "common" "linux" "openbsd" "freebsd" "netbsd" "osx" "sunos" "windows")
+PLATFORMS=("android" "common" "linux" "openbsd" "freebsd" "netbsd" "osx" "sunos" "windows" "cisco-ios" "dos")
 
 # shellcheck disable=SC2016
+HEADER_REGEX='^>.*$'
+# shellcheck disable=SC2016
 COMMAND_REGEX='^`[^`]\+`$'
-CHECK_NAMES="missing_tldr_page,misplaced_page,outdated_page,missing_english_page,missing_translated_page,lint"
+CHECK_NAMES="missing_tldr_page,missing_see_also_page,misplaced_page,outdated_page,missing_english_page,missing_translated_page,lint"
 VERBOSE=false
 
 while getopts ":l:c:v" opt; do
@@ -65,11 +67,12 @@ MISSING_TLDR_OUTPUT_FILE="$OUTPUT_DIR/missing-tldr${LANGUAGE_ID:+-$LANGUAGE_ID}-
 MISPLACED_OUTPUT_FILE="$OUTPUT_DIR/misplaced${LANGUAGE_ID:+-$LANGUAGE_ID}-pages.txt"
 OUTDATED_BASED_ON_COMMAND_CONTENTS_FILE="$OUTPUT_DIR/outdated${LANGUAGE_ID:+-$LANGUAGE_ID}-pages-based-on-command-contents.txt"
 OUTDATED_BASED_ON_COMMAND_COUNT_FILE="$OUTPUT_DIR/outdated${LANGUAGE_ID:+-$LANGUAGE_ID}-pages-based-on-command-count.txt"
+OUTDATED_BASED_ON_HEADER_FILE="$OUTPUT_DIR/outdated${LANGUAGE_ID:+-$LANGUAGE_ID}-pages-based-on-header-line-count.txt"
 MISSING_ENGLISH_OUTPUT_FILE="$OUTPUT_DIR/missing-english${LANGUAGE_ID:+-$LANGUAGE_ID}-pages.txt"
 MISSING_TRANSLATED_OUTPUT_FILE="$OUTPUT_DIR/missing-translated${LANGUAGE_ID:+-$LANGUAGE_ID}-pages.txt"
 LINT_FILE="$OUTPUT_DIR/lint-errors${LANGUAGE_ID:+-$LANGUAGE_ID}.txt"
 
-OUTPUT_FILES=( "$MISSING_TLDR_OUTPUT_FILE" "$MISPLACED_OUTPUT_FILE" "$OUTDATED_BASED_ON_COMMAND_CONTENTS_FILE" "$OUTDATED_BASED_ON_COMMAND_COUNT_FILE" "$MISSING_ENGLISH_OUTPUT_FILE" "$MISSING_TRANSLATED_OUTPUT_FILE" "$LINT_FILE" )
+OUTPUT_FILES=( "$MISSING_TLDR_OUTPUT_FILE" "$MISPLACED_OUTPUT_FILE" "$OUTDATED_BASED_ON_COMMAND_CONTENTS_FILE" "$OUTDATED_BASED_ON_COMMAND_COUNT_FILE" "$OUTDATED_BASED_ON_HEADER_FILE" "$MISSING_ENGLISH_OUTPUT_FILE" "$MISSING_TRANSLATED_OUTPUT_FILE" "$LINT_FILE" )
 
 for OUTPUT_FILE in  "${OUTPUT_FILES[@]}"; do
   rm -rf "$OUTPUT_FILE"
@@ -115,19 +118,27 @@ count_commands() {
   grep -c "$COMMAND_REGEX" "$file"
 }
 
+count_header() {
+  local file="$1"
+
+  grep -c "$HEADER_REGEX" "$file"
+}
+
 strip_commands() {
   local file="$1"
 
   local stripped_commands=()
-  
+
   mapfile -t stripped_commands < <(
-    grep "$COMMAND_REGEX" "$file" | 
-    sed 's/{{[^}]*}}/{{}}/g' | 
-    sed 's/<[^>]*>//g' | 
-    sed 's/([^)]*)//g' | 
-    sed 's/"[^"]*"/""/g' | 
-    sed "s/'[^']*'//g" | 
-    sed 's/`//g'
+    grep "$COMMAND_REGEX" "$file" |
+    sed 's/{{\[\([^|]*|[^]]*\)\]}}/___\1___/g' |
+    sed -E 's/\{\{([^}]|(\{[^}]*\}))*\}\}/{{}}/g' |
+    sed 's/<[^>]*>//g' |
+    sed 's/([^)]*)//g' |
+    sed 's/"[^"]*"/""/g' |
+    sed "s/'[^']*'//g" |
+    sed 's/`//g' |
+    sed 's/___\(.*\)___/{{\[\1\]}}/g'
   )
 
   printf "%s\n" "${stripped_commands[*]}"
@@ -135,7 +146,7 @@ strip_commands() {
 
 check_missing_tldr_page() {
   local file="$1"
-  
+
   while IFS= read -r line; do
     line="${line#\`tldr }" # Remove "`tldr " prefix
     line="${line%\`}"    # Remove the last backtick
@@ -164,6 +175,34 @@ check_missing_tldr_page() {
   done
 }
 
+check_missing_see_also_page() {
+  local file="$1"
+  read -r line
+  if [ "$line" = "" ]
+  then
+    return
+  fi
+
+  # shellcheck disable=SC2016
+  for command in $(echo "${line}" | grep -o '`[^`]*`' | sed 's/`//g' | sed 's/ /-/g'); do
+      local missing=true
+      local filename="${command,,}"
+      for platform in "${PLATFORMS[@]}"; do
+        if [ -f "$folder_path/$platform/$filename.md" ]; then
+          missing=false
+          break
+        fi
+      done
+
+        if [ "$missing" = true ]; then
+          local filepath
+          filepath=$(get_filepath_without_tldr "$file")
+
+          echo "$command does not exist yet! Command referenced in $filepath" >> "$MISSING_TLDR_OUTPUT_FILE"
+        fi
+  done
+}
+
 check_misplaced_page() {
   local file="$1"
   local platform
@@ -189,7 +228,7 @@ check_outdated_page() {
   local commands
   english_commands=$(count_commands "$english_file")
   commands=$(count_commands "$file")
-  
+
   english_commands_as_string=$(strip_commands "$english_file")
   commands_as_string=$(strip_commands "$file")
 
@@ -200,6 +239,12 @@ check_outdated_page() {
     echo "$filepath" >> "$OUTDATED_BASED_ON_COMMAND_COUNT_FILE"
   elif [ "$english_commands_as_string" != "$commands_as_string" ]; then
     echo "$filepath" >> "$OUTDATED_BASED_ON_COMMAND_CONTENTS_FILE"
+  fi
+
+  english_header_lines=$(count_header "$english_file")
+  header_lines=$(count_header "$file")
+  if [ "$english_header_lines" != "$header_lines" ]; then
+    echo "$filepath" >> "$OUTDATED_BASED_ON_HEADER_FILE"
   fi
 }
 
@@ -259,6 +304,29 @@ if [[ " ${CHECK_NAMES[*]} " =~ " lint " ]]; then
   lint "$folder_path"
 fi
 
+declare -A section
+state=1
+while IFS= read -r line; do
+  case $state in
+  1)
+    locale=$(echo "$line" | grep "###" | cut -d " " -f 2)
+    if [ -n "$locale" ] ; then
+      state=2
+    fi
+  ;;
+  2)
+    content=$(echo "$line" | grep ">" | cut -d '`' -f 1)
+    if [ -n "$content" ]; then
+      section[$locale]=$content
+      state=1
+    fi
+    if [ "$line" == "---" ]; then
+      state=1
+    fi
+  ;;
+  esac
+done < ./tldr/contributing-guides/translation-templates/see-also-mentions.md
+
 for file in "${files[@]}"; do
   if [ -n "$LANGUAGE_ID" ]; then
     english_file=$(get_english_file "$file")
@@ -268,7 +336,10 @@ for file in "${files[@]}"; do
     case "$check_name" in
         "missing_tldr_page")
             # shellcheck disable=SC2016
-            grep -o '`tldr \(.*\)`$' "$file" | check_missing_tldr_page "$file"
+            grep -o '`tldr .*`$' "$file" | check_missing_tldr_page "$file"
+            ;;
+        "missing_see_also_page")
+            grep -o "^${section[${LANGUAGE_ID:-en}]}.*" "$file" | check_missing_see_also_page "$file"
             ;;
         "misplaced_page")
             check_misplaced_page "$file"

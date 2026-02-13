@@ -31,12 +31,16 @@ class Topics(str, Enum):
     MALFORMED_OR_OUTDATED_MORE_INFO_LINK = (
         "malformed or outdated more info link page(s)"
     )
+    MALFORMED_OR_OUTDATED_SEE_ALSO_MENTIONS = (
+        "malformed or outdated see also mention(s)"
+    )
     ALIAS_PAGES = "missing alias page(s)"
     PAGE_TITLES = "mismatched page title(s)"
     MISSING_TLDR = "missing TLDR page(s)"
     MISPLACED = "misplaced page(s)"
     BASED_ON_COMMAND_COUNT = "outdated page(s) based on number of commands"
     BASED_ON_COMMAND_CONTENTS = "outdated page(s) based on the commands itself"
+    BASED_ON_HEADER_LINE_COUNT = "outdated page(s) based on number of header lines"
     MISSING_ENGLISH = "missing English page(s)"
     MISSING_TRANSLATED = "missing translated page(s)"
     LINT_ERRORS = "linter error(s)"
@@ -51,12 +55,14 @@ def parse_language_directory(directory):
     topics = [
         "inconsistent",
         "malformed-or-outdated-more-info-link",
+        "malformed-or-outdated-see-also-mentions",
         "alias-pages",
         "page-titles",
         "missing-tldr",
         "misplaced",
         "based-on-command-count",
         "based-on-command-contents",
+        "based-on-header-line-count",
         "missing-english",
         "missing-translated",
         "lint-errors",

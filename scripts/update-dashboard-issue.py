@@ -28,6 +28,9 @@ class Topics(str, Enum):
     MALFORMED_OR_OUTDATED_MORE_INFO_LINK_PAGES = (
         "malformed or outdated more info link page(s)"
     )
+    MALFORMED_OR_OUTDATED_SEE_ALSO_MENTIONS = (
+        "malformed or outdated see also mention(s)"
+    )
     MISSING_ALIAS_PAGES = "missing alias page(s)"
     MISMATCHED_PAGE_TITLES = "mismatched page title(s)"
     MISSING_TLDR_PAGES = "missing TLDR page(s)"
@@ -37,6 +40,9 @@ class Topics(str, Enum):
     )
     OUTDATED_PAGES_BASED_ON_COMMAND_CONTENTS = (
         "outdated page(s) based on the commands itself"
+    )
+    OUTDATED_PAGES_BASED_ON_HEADER_LINE_COUNT = (
+        "outdated page(s) based on number of header lines"
     )
     MISSING_ENGLISH_PAGES = "missing English page(s)"
     MISSING_TRANSLATED_PAGES = "missing translated page(s)"
@@ -48,12 +54,14 @@ def parse_log_file(path: Path) -> dict:
     overview_patterns = {
         "Total inconsistent filenames": r"Total inconsistent filename\(s\): (.+)",
         "Total malformed or outdated more info link pages": r"Total malformed or outdated more info link page\(s\): (.+)",
+        "Total malformed or outdated see also's": r"Total malformed or outdated see also mention\(s\): (.+)",
         "Total missing alias pages": r"Total missing alias page\(s\): (.+)",
         "Total mismatched page titles": r"Total mismatched page title\(s\): (.+)",
         "Total missing TLDR pages": r"Total missing TLDR page\(s\): (.+)",
         "Total misplaced pages": r"Total misplaced page\(s\): (.+)",
         "Total outdated pages (based on number of commands)": r"Total outdated page\(s\) based on number of commands: (.+)",
         "Total outdated pages (based on the commands itself)": r"Total outdated page\(s\) based on the commands itself: (.+)",
+        "Total outdated pages (based on number of header lines)": r"Total outdated page\(s\) based on number of header lines: (.+)",
         "Total missing English pages": r"Total missing English page\(s\): (.+)",
         "Total missing translated pages": r"Total missing translated page\(s\): (.+)",
         "Total linter errors": r"Total lint error\(s\): (.+)",
@@ -62,12 +70,14 @@ def parse_log_file(path: Path) -> dict:
     detail_patterns = {
         "inconsistent filename(s)": r"(\d+) inconsistent filename",
         "malformed or outdated more info link page(s)": r"(\d+) malformed or outdated",
+        "malformed or outdated see also mention(s)": r"(\d+) malformed or outdated see also",
         "missing alias page(s)": r"(\d+) missing alias",
         "mismatched page title(s)": r"(\d+) mismatched page title",
         "missing TLDR page(s)": r"(\d+) missing TLDR",
         "misplaced page(s)": r"(\d+) misplaced page",
         "outdated pages (based on number of commands)": r"(\d+) outdated page\(s\) based on number of commands",
         "outdated pages (based on the commands itself)": r"(\d+) outdated page\(s\) based on the commands itself",
+        "outdated pages (based on the number of header lines)": r"(\d+) outdated page\(s\) based on number of header lines",
         "missing English page(s)": r"(\d+) missing English",
         "missing translated page(s)": r"(\d+) missing translated",
         "linter error(s)": r"(\d+) linter error",
@@ -121,12 +131,14 @@ def parse_seperate_text_files(data):
     for file in [
         Path("inconsistent-filenames.txt"),
         Path("malformed-or-outdated-more-info-link-pages.txt"),
+        Path("malformed-or-outdated-see-also-mentions.txt"),
         Path("missing-alias-pages.txt"),
         Path("mismatched-page-titles.txt"),
         Path("missing-tldr-pages.txt"),
         Path("misplaced-pages.txt"),
         Path("outdated-pages-based-on-command-count.txt"),
         Path("outdated-pages-based-on-command-contents.txt"),
+        Path("outdated-pages-based-on-header-line-count.txt"),
         Path("missing-english-pages.txt"),
         Path("missing-translated-pages.txt"),
         Path("lint-errors.txt"),

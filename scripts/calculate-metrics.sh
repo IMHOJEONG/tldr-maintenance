@@ -11,6 +11,8 @@ total_translation_folders=$(find ./tldr -maxdepth 1 -type d -name "pages.*" | wc
 total_pages_need_translation=$((total_english_pages * total_translation_folders))
 # shellcheck disable=SC2016
 total_tldr_pages=$(find ./tldr/pages* -type f -exec grep -o '`tldr [^`]*' {} + | awk -F':' '{print $2}' | wc -l)
+total_english_pages_with_see_also_mention=$(find ./tldr/pages* -type f -exec grep -o '> See also:' {} + | awk -F':' '{print $2}' | wc -l)
+total_pages_need_see_also_mention=$((total_english_pages_with_see_also_mention * total_translation_folders))
 total_unique_non_english_pages=$(find ./tldr/pages.* -type f | awk -F/ '{print $NF}' | sort -u | wc -l)
 
 EXIT_CODE=0
@@ -18,20 +20,26 @@ EXIT_CODE=0
 run_python_script() {
   local script_name="$1"
   local remove_text="$2"
+  local additional_options="$3"
 
-  ./tldr/scripts/"${script_name}".py -Sn > "$script_name".txt
-  sed 's/\x1b\[[0-9;]*m//g' "$script_name".txt | sed "$remove_text" > "$script_name".txt.tmp
+  if [[ -n "$additional_options" ]]; then
+    ./tldr/scripts/"${script_name}.py" -Sn "$additional_options" >> "$script_name".txt
+  else
+    ./tldr/scripts/"${script_name}.py" -Sn >> "$script_name".txt
+  fi
+
+  sed 's/\x1b\[[0-9;]*m//g' "$script_name".txt | sed "$remove_text" >> "$script_name".txt.tmp
   mv "$script_name".txt.tmp "$script_name".txt
-  sort -o "$script_name".txt "$script_name".txt
+  sort -u "$script_name".txt -o "$script_name".txt
 }
 
 run_python_script "set-more-info-link" 's/ link would be.*$//'
+run_python_script "set-see-also" 's/ see also would be.*$//'
 run_python_script "set-alias-page" 's/ page would be.*$//'
+run_python_script "set-alias-page" 's/ page would be.*$//' '-i'
 run_python_script "set-page-title" 's/ title would be.*$//'
 
-if [[ "$OSTYPE" != "darwin"* ]]; then
-  (cd tldr && ./scripts/wrong-filename.sh && mv ./inconsistent-filenames.txt ../inconsistent-filenames.txt)
-fi
+./tldr/scripts/wrong-filename.py
 
 ./scripts/check-pages.sh -v
 
@@ -81,6 +89,7 @@ for folder in $folders; do
 
   grep_count_and_display "pages.$folder_suffix/" "./inconsistent-filenames.txt" "./check-pages.$folder_suffix/inconsistent-$folder_suffix-filenames.txt" "inconsistent filename(s)"
   grep_count_and_display "pages.$folder_suffix/" "./set-more-info-link.txt" "./check-pages.$folder_suffix/malformed-or-outdated-more-info-link-$folder_suffix-pages.txt" "malformed or outdated more info link page(s)"
+  grep_count_and_display "pages.$folder_suffix/" "./set-see-also.txt" "./check-pages.$folder_suffix/malformed-or-outdated-see-also-mentions-$folder_suffix-pages.txt" "malformed or outdated see also mention(s)"
   grep_count_and_display "pages.$folder_suffix/" "./set-alias-page.txt" "./check-pages.$folder_suffix/missing-$folder_suffix-alias-pages.txt" "missing alias page(s)"
   grep_count_and_display "pages.$folder_suffix/" "./set-page-title.txt" "./check-pages.$folder_suffix/mismatched-$folder_suffix-page-titles.txt" "mismatched page title(s)"
 
@@ -88,6 +97,7 @@ for folder in $folders; do
   count_and_display "./check-pages.$folder_suffix/misplaced-$folder_suffix-pages.txt" "misplaced page(s)"
   count_and_display "./check-pages.$folder_suffix/outdated-$folder_suffix-pages-based-on-command-count.txt" "outdated page(s) based on number of commands"
   count_and_display "./check-pages.$folder_suffix/outdated-$folder_suffix-pages-based-on-command-contents.txt" "outdated page(s) based on the commands itself"
+  count_and_display "./check-pages.$folder_suffix/outdated-$folder_suffix-pages-based-on-header-line-count.txt" "outdated page(s) based on number of header lines"
   count_and_display "./check-pages.$folder_suffix/missing-english-$folder_suffix-pages.txt" "missing English page(s)"
   count_and_display "./check-pages.$folder_suffix/missing-translated-$folder_suffix-pages.txt" "missing translated page(s)"
   count_and_display "./check-pages.$folder_suffix/lint-errors-$folder_suffix.txt" "linter error(s)"
@@ -95,7 +105,7 @@ for folder in $folders; do
   printf -- '_%.0s' {1..100}; echo
 done
 
-rm -f "./set-alias-page.txt" "./set-more-info-link.txt" "./set-page-title.txt"
+rm -f "./set-more-info-link.txt" "./set-see-also.txt" "./set-alias-page.txt" "./set-page-title.txt"
 
 merge_files_and_calculate_total() {
   local files_pattern="$1"
@@ -141,13 +151,15 @@ calculate_and_display() {
 }
 
 calculate_and_display '*/check-pages*/inconsistent*filenames.txt' "./inconsistent-filenames.txt" "$total_pages" "inconsistent filename(s)"
-calculate_and_display '*/check-pages*/malformed*more-info-link*pages.txt' "./malformed-or-outdated-more-info-link-pages.txt" "$total_pages" "malformed or outdated more info link page(s)"
+calculate_and_display '*/check-pages*/malformed-or-outdated-more-info-link*pages.txt' "./malformed-or-outdated-more-info-link-pages.txt" "$total_pages" "malformed or outdated more info link page(s)"
+calculate_and_display '*/check-pages*/malformed-or-outdated-see-also-mentions*pages.txt' "./malformed-or-outdated-see-also-mentions.txt" "$total_pages_need_see_also_mention" "malformed or outdated see also mention(s)"
 calculate_and_display '*/check-pages*/missing*alias-pages.txt' "./missing-alias-pages.txt" "" "missing alias page(s)"
 calculate_and_display '*/check-pages*/mismatched*page-titles.txt' "./mismatched-page-titles.txt" "$total_unique_non_english_pages" "mismatched page title(s)"
 calculate_and_display '*/check-pages*/missing-tldr*pages.txt' "./missing-tldr-pages.txt" "$total_tldr_pages" "missing TLDR page(s)"
 calculate_and_display '*/check-pages*/misplaced*pages.txt' "./misplaced-pages.txt" "$total_pages" "misplaced page(s)"
 calculate_and_display '*/check-pages*/outdated*pages-based-on-command-count.txt' "./outdated-pages-based-on-command-count.txt" "$total_non_english_pages" "outdated page(s) based on number of commands"
 calculate_and_display '*/check-pages*/outdated*pages-based-on-command-contents.txt' "./outdated-pages-based-on-command-contents.txt" "$total_non_english_pages" "outdated page(s) based on the commands itself"
+calculate_and_display '*/check-pages*/outdated*pages-based-on-header-line-count.txt' "./outdated-pages-based-on-header-line-count.txt" "$total_non_english_pages" "outdated page(s) based on number of header lines"
 calculate_and_display '*/check-pages*/missing-english*pages.txt' "./missing-english-pages.txt" "$total_unique_non_english_pages" "missing English page(s)"
 calculate_and_display '*/check-pages*/missing-translated*pages.txt' "./missing-translated-pages.txt" "$total_pages_need_translation" "missing translated page(s)"
 calculate_and_display '*/check-pages*/lint-errors*.txt' "./lint-errors.txt" "" "lint error(s)"

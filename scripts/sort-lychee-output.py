@@ -6,10 +6,15 @@ from pathlib import Path
 
 
 def extract_failures(markdown_text):
-    failure_pattern = re.compile(
-        r"^\* \[(\w+)\] \[([^\]]+)\]\([^\)]+\) \| .*$", re.MULTILINE
-    )
-    return failure_pattern.findall(markdown_text)
+    failure_pattern = re.compile(r"^\* \[([^\]]+)\] <([^>]+)> \| .*$", re.MULTILINE)
+    failures = failure_pattern.findall(markdown_text)
+
+    # Drop redirects (200)
+    return [
+        (error_info, url)
+        for error_info, url in failures
+        if not error_info.startswith(("200"))
+    ]
 
 
 def sort_failures_alphabetically(failures):
